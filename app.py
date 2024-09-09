@@ -250,6 +250,9 @@ if "save_dir" not in st.session_state:
 if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = set()
 
+if "processing" not in st.session_state:
+    st.session_state.processing = False
+    
 @st.dialog("Setup Gemini")
 def vote():
     st.markdown(
@@ -347,8 +350,10 @@ def compute_rag_chain(_model, _embd, docs_texts):
 if st.session_state.uploaded_files:
     if st.session_state.gemini_api is not None:
         if st.session_state.rag is None:
+            st.session_state.processing = True
             docs_texts = [d.page_content for d in documents]
             st.session_state.rag = compute_rag_chain(st.session_state.model, st.session_state.embd, docs_texts)
+            st.session_state.processing = False
                 
 if st.session_state.gemini_api is not None:
     if st.session_state.llm is None:
@@ -372,20 +377,23 @@ for message in st.session_state.chat_history:
         st.write(message["content"])
 
 prompt = st.chat_input("Bạn muốn hỏi gì?")
-if st.session_state.gemini_api:
-    if prompt:
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
-            
-        with st.chat_message("user"):
-            st.write(prompt)
-            
-        with st.chat_message("assistant"):
-            if st.session_state.rag is not None:
-                respone = st.session_state.rag.invoke(prompt)
-                st.write(respone)
-            else:                  
-                ans = st.session_state.llm.invoke(prompt)
-                respone = ans.content
-                st.write(respone)
+
+if not st.session_state.processing:
+    if st.session_state.gemini_api:
+        if prompt:
+            st.session_state.chat_history.append({"role": "user", "content": prompt})
                 
-        st.session_state.chat_history.append({"role": "assistant", "content": respone})
+            with st.chat_message("user"):
+                st.write(prompt)
+                
+            with st.chat_message("assistant"):
+                if st.session_state.rag is not None:
+                    respone = st.session_state.rag.invoke(prompt)
+                    st.write(respone)
+                else:                  
+                    ans = st.session_state.llm.invoke(prompt)
+                    respone = ans.content
+                    st.write(respone)
+                    
+            st.session_state.chat_history.append({"role": "assistant", "content": respone})
+    
