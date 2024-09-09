@@ -373,11 +373,10 @@ for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-prompt = st.chat_input("Bạn muốn hỏi gì?")
 
 if not st.session_state.processing:
     if st.session_state.gemini_api:
-        if prompt:
+        if prompt := st.chat_input("Bạn muốn hỏi gì?"):
             st.session_state.chat_history.append({"role": "user", "content": prompt})
                 
             with st.chat_message("user"):
