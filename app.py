@@ -303,10 +303,9 @@ with st.sidebar:
             if new_docs:  
                 st.session_state.uploaded_files = uploaded_file_names
                 st.session_state.rag = None
-            
-            if not uploaded_file_names:
-                st.session_state.uploaded_files = set()
-                st.session_state.rag = None
+        else:
+            st.session_state.uploaded_files = set()
+            st.session_state.rag = None
                 
 if st.session_state.uploaded_files:
     if st.session_state.gemini_api is not None:
@@ -347,7 +346,7 @@ if st.session_state.gemini_api is not None:
             [
                 (
                     "system",
-                    "Bạn là 1 chatbot thông minh",
+                    "Bản là một trợ lí AI hỗ trợ tuyển sinh và sinh viên",
                 ),
                 ("human", "{input}"),
             ]
