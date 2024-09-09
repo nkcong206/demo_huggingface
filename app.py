@@ -206,7 +206,7 @@ def recursive_embed_cluster_summarize(model,embd,
 
 
 
-page = st.title("Chat with Gemini")
+page = st.title("Chat with AskUSTH")
 
 if "gemini_api" not in st.session_state:
     st.session_state.gemini_api = None
