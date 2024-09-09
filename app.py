@@ -11,7 +11,6 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 import umap
-from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from sklearn.mixture import GaussianMixture
 
@@ -204,8 +203,6 @@ def recursive_embed_cluster_summarize(model,embd,
 
     return results
 
-
-
 page = st.title("Chat with AskUSTH")
 
 if "gemini_api" not in st.session_state:
@@ -244,6 +241,9 @@ def get_embedding_model():
 if "embd" not in st.session_state:
     st.session_state.embd = get_embedding_model()
 
+if "model" not in st.session_state:
+    st.session_state.model = None
+
 if "save_dir" not in st.session_state:
     st.session_state.save_dir = None 
 
@@ -264,8 +264,8 @@ def vote():
 
 if st.session_state.gemini_api is None:
     vote()
-else:
-    os.environ["GOOGLE_API_KEY"] = st.session_state.gemini_api 
+
+if st.session_state.gemini_api and st.session_state.model is None:
     st.session_state.model = get_chat_google_model(st.session_state.gemini_api)
 
 if st.session_state.save_dir is None:
@@ -279,9 +279,8 @@ def load_txt(file_path):
     doc = loader_sv.load()
     return doc
 
-
 with st.sidebar:
-    uploaded_files = st.file_uploader("Chọn file CSV", accept_multiple_files=True, type=["txt"])   
+    uploaded_files = st.file_uploader("Chọn file txt", accept_multiple_files=True, type=["txt"])   
     if st.session_state.gemini_api:
         if uploaded_files:
             documents = []
@@ -345,12 +344,11 @@ def load_rag():
     st.session_state.rag = compute_rag_chain(st.session_state.model, st.session_state.embd, docs_texts)
     st.rerun()  
 
-if st.session_state.uploaded_files and st.session_state.gemini_api:
-    if st.session_state.gemini_api is not None:
-            if st.session_state.rag is None:
-                load_rag()
+if st.session_state.uploaded_files and st.session_state.model is not None:
+    if st.session_state.rag is None:
+        load_rag()
 
-if st.session_state.gemini_api is not None and st.session_state.gemini_api:
+if st.session_state.model is not None:
     if st.session_state.llm is None:
         mess = ChatPromptTemplate.from_messages(
             [
@@ -372,7 +370,7 @@ for message in st.session_state.chat_history:
         st.write(message["content"])
 
 prompt = st.chat_input("Bạn muốn hỏi gì?")
-if st.session_state.gemini_api:
+if st.session_state.model is not None:
     if prompt:
         st.session_state.chat_history.append({"role": "user", "content": prompt})
             
@@ -381,20 +379,12 @@ if st.session_state.gemini_api:
             
         with st.chat_message("assistant"):
             if st.session_state.rag is not None:
-                try:
-                    respone = st.session_state.rag.invoke(prompt)
-                    st.write(respone)
-                except:
-                    respone = "Lỗi Gemini, load lại trang và nhập lại key"
-                    st.write(respone)
+                respone = st.session_state.rag.invoke(prompt)
+                st.write(respone)
             else: 
-                try:                 
-                    ans = st.session_state.llm.invoke(prompt)
-                    respone = ans.content
-                    st.write(respone)
-                except:
-                    respone = "Lỗi Gemini, load lại trang và nhập lại key"
-                    st.write(respone)
+                ans = st.session_state.llm.invoke(prompt)
+                respone = ans.content
+                st.write(respone)
                 
         st.session_state.chat_history.append({"role": "assistant", "content": respone})
 
