@@ -346,10 +346,9 @@ def compute_rag_chain(_model, _embd, docs_texts):
 
 if st.session_state.uploaded_files:
     if st.session_state.gemini_api is not None:
-        with st.spinner("Đang xử lý, vui lòng đợi..."):
-            if st.session_state.rag is None:
-                docs_texts = [d.page_content for d in documents]
-                st.session_state.rag = compute_rag_chain(st.session_state.model, st.session_state.embd, docs_texts)
+        if st.session_state.rag is None:
+            docs_texts = [d.page_content for d in documents]
+            st.session_state.rag = compute_rag_chain(st.session_state.model, st.session_state.embd, docs_texts)
                 
 if st.session_state.gemini_api is not None:
     if st.session_state.llm is None:
