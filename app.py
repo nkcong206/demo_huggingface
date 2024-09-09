@@ -318,7 +318,8 @@ def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
           
 @st.cache_resource
-def compute_rag_chain(model, embd, docs_texts):
+def compute_rag_chain(_model, embd, docs_texts):
+    model = _model
     results = recursive_embed_cluster_summarize(model, embd, docs_texts, level=1, n_levels=3)
     all_texts = docs_texts.copy()
     for level in sorted(results.keys()):
