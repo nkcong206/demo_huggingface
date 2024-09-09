@@ -375,7 +375,8 @@ if st.session_state.gemini_api:
                 respone = st.session_state.rag.invoke(prompt)
                 st.write(respone)
             else:                  
-                respone = st.session_state.llm.invoke(prompt)
+                ans = st.session_state.llm.invoke(prompt)
+                respone = ans.content
                 st.write(respone)
                 
         st.session_state.chat_history.append({"role": "assistant", "content": respone})
