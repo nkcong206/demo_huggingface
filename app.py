@@ -309,42 +309,43 @@ with st.sidebar:
                 
 if st.session_state.uploaded_files:
     if st.session_state.gemini_api is not None:
-        if st.session_state.rag is None:
-            docs_texts  = [d.page_content for d in documents]
+        with st.spinner("Đang xử lý, vui lòng đợi..."):
+            if st.session_state.rag is None:
+                docs_texts  = [d.page_content for d in documents]
 
-            results = recursive_embed_cluster_summarize(st.session_state.model, st.session_state.embd, docs_texts, level=1, n_levels=3)
+                results = recursive_embed_cluster_summarize(st.session_state.model, st.session_state.embd, docs_texts, level=1, n_levels=3)
 
-            all_texts = docs_texts.copy()
+                all_texts = docs_texts.copy()
 
-            for level in sorted(results.keys()):
-                summaries = results[level][1]["summaries"].tolist()
-                all_texts.extend(summaries)
+                for level in sorted(results.keys()):
+                    summaries = results[level][1]["summaries"].tolist()
+                    all_texts.extend(summaries)
 
-            vectorstore = Chroma.from_texts(texts=all_texts, embedding=st.session_state.embd)
-            
-            retriever = vectorstore.as_retriever()
+                vectorstore = Chroma.from_texts(texts=all_texts, embedding=st.session_state.embd)
+                
+                retriever = vectorstore.as_retriever()
 
-            def format_docs(docs):
-                return "\n\n".join(doc.page_content for doc in docs)
+                def format_docs(docs):
+                    return "\n\n".join(doc.page_content for doc in docs)
 
-            template = """
-                        Bạn là một trợ lí AI hỗ trợ tuyển sinh và sinh viên. \n
-                        Hãy trả lời câu hỏi chính xác, tập trung vào thông tin liên quan đến câu hỏi. \n
-                        Nếu bạn không biết câu trả lời, hãy nói không biết, đừng cố tạo ra câu trả lời.\n
-                        Dưới đây là thông tin liên quan mà bạn cần sử dụng tới:\n
-                        {context}\n
-                        hãy trả lời:\n
-                        {question}
-                        """
-            prompt = PromptTemplate(template = template, input_variables=["context", "question"])
-            rag_chain = (
-                {"context": retriever | format_docs, "question": RunnablePassthrough()}
-                | prompt
-                | st.session_state.model
-                | StrOutputParser()
-            ) 
-            st.session_state.rag = rag_chain
-            
+                template = """
+                            Bạn là một trợ lí AI hỗ trợ tuyển sinh và sinh viên. \n
+                            Hãy trả lời câu hỏi chính xác, tập trung vào thông tin liên quan đến câu hỏi. \n
+                            Nếu bạn không biết câu trả lời, hãy nói không biết, đừng cố tạo ra câu trả lời.\n
+                            Dưới đây là thông tin liên quan mà bạn cần sử dụng tới:\n
+                            {context}\n
+                            hãy trả lời:\n
+                            {question}
+                            """
+                prompt = PromptTemplate(template = template, input_variables=["context", "question"])
+                rag_chain = (
+                    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+                    | prompt
+                    | st.session_state.model
+                    | StrOutputParser()
+                ) 
+                st.session_state.rag = rag_chain
+                
 if st.session_state.gemini_api is not None:
     if st.session_state.llm is None:
         mess = ChatPromptTemplate.from_messages(
