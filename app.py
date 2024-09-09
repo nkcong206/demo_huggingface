@@ -318,14 +318,13 @@ def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
           
 @st.cache_resource
-def compute_rag_chain(_model, embd, docs_texts):
-    model = _model
-    results = recursive_embed_cluster_summarize(model, embd, docs_texts, level=1, n_levels=3)
+def compute_rag_chain(_model, _embd, docs_texts):
+    results = recursive_embed_cluster_summarize(_model, _embd, docs_texts, level=1, n_levels=3)
     all_texts = docs_texts.copy()
     for level in sorted(results.keys()):
         summaries = results[level][1]["summaries"].tolist()
         all_texts.extend(summaries)
-    vectorstore = Chroma.from_texts(texts=all_texts, embedding=embd)
+    vectorstore = Chroma.from_texts(texts=all_texts, embedding=_embd)
     retriever = vectorstore.as_retriever()
     template = """
         Bạn là một trợ lí AI hỗ trợ tuyển sinh và sinh viên. \n
@@ -340,7 +339,7 @@ def compute_rag_chain(_model, embd, docs_texts):
     rag_chain = (
         {"context": retriever | format_docs, "question": RunnablePassthrough()}
         | prompt
-        | model
+        | _model
         | StrOutputParser()
     )
     return rag_chain
