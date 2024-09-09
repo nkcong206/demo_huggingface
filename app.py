@@ -249,9 +249,6 @@ if "save_dir" not in st.session_state:
 
 if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = set()
-
-if "processing" not in st.session_state:
-    st.session_state.processing = False
     
 @st.dialog("Setup Gemini")
 def vote():
@@ -261,7 +258,7 @@ def vote():
         """
     )
     key = st.text_input("Key:", "")
-    if st.button("Save"):
+    if st.button("Save") and key != "":
         st.session_state.gemini_api = key
         st.rerun()  
 
@@ -269,7 +266,6 @@ if st.session_state.gemini_api is None:
     vote()
 else:
     os.environ["GOOGLE_API_KEY"] = st.session_state.gemini_api 
-    
     st.session_state.model = get_chat_google_model(st.session_state.gemini_api)
 
 if st.session_state.save_dir is None:
@@ -282,7 +278,6 @@ def load_txt(file_path):
     loader_sv = TextLoader(file_path=file_path, encoding="utf-8")
     doc = loader_sv.load()
     return doc
-
 
 
 with st.sidebar:
@@ -316,7 +311,7 @@ with st.sidebar:
 
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
-          
+
 @st.cache_resource
 def compute_rag_chain(_model, _embd, docs_texts):
     results = recursive_embed_cluster_summarize(_model, _embd, docs_texts, level=1, n_levels=3)
@@ -344,15 +339,18 @@ def compute_rag_chain(_model, _embd, docs_texts):
     )
     return rag_chain
 
-if st.session_state.uploaded_files:
+@st.dialog("Setup RAG")
+def load_rag():
+    docs_texts = [d.page_content for d in documents]
+    st.session_state.rag = compute_rag_chain(st.session_state.model, st.session_state.embd, docs_texts)
+    st.rerun()  
+
+if st.session_state.uploaded_files and st.session_state.gemini_api:
     if st.session_state.gemini_api is not None:
-        if st.session_state.rag is None:
-            st.session_state.processing = True
-            docs_texts = [d.page_content for d in documents]
-            st.session_state.rag = compute_rag_chain(st.session_state.model, st.session_state.embd, docs_texts)
-            st.session_state.processing = False
-                
-if st.session_state.gemini_api is not None:
+            if st.session_state.rag is None:
+                load_rag()
+
+if st.session_state.gemini_api is not None and st.session_state.gemini_api:
     if st.session_state.llm is None:
         mess = ChatPromptTemplate.from_messages(
             [
@@ -373,23 +371,30 @@ for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-
-if not st.session_state.processing:
-    if st.session_state.gemini_api:
-        if prompt := st.chat_input("Bạn muốn hỏi gì?"):
-            st.session_state.chat_history.append({"role": "user", "content": prompt})
-                
-            with st.chat_message("user"):
-                st.write(prompt)
-                
-            with st.chat_message("assistant"):
-                if st.session_state.rag is not None:
+prompt = st.chat_input("Bạn muốn hỏi gì?")
+if st.session_state.gemini_api:
+    if prompt:
+        st.session_state.chat_history.append({"role": "user", "content": prompt})
+            
+        with st.chat_message("user"):
+            st.write(prompt)
+            
+        with st.chat_message("assistant"):
+            if st.session_state.rag is not None:
+                try:
                     respone = st.session_state.rag.invoke(prompt)
                     st.write(respone)
-                else:                  
+                except:
+                    respone = "Lỗi Gemini, load lại trang và nhập lại key"
+                    st.write(respone)
+            else: 
+                try:                 
                     ans = st.session_state.llm.invoke(prompt)
                     respone = ans.content
                     st.write(respone)
-                    
-            st.session_state.chat_history.append({"role": "assistant", "content": respone})
-    
+                except:
+                    respone = "Lỗi Gemini, load lại trang và nhập lại key"
+                    st.write(respone)
+                
+        st.session_state.chat_history.append({"role": "assistant", "content": respone})
+
