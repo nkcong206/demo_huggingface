@@ -271,9 +271,6 @@ else:
     os.environ["GOOGLE_API_KEY"] = st.session_state.gemini_api 
     
     st.session_state.model = get_chat_google_model(st.session_state.gemini_api)
-    
-    st.write(f"Key is set to: {st.session_state.gemini_api}")
-    st.write(f"loaded vietnamese-bi-encoder")       
 
 if st.session_state.save_dir is None:
     save_dir = "./Documents"
