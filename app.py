@@ -216,12 +216,33 @@ if "rag" not in st.session_state:
     
 if "llm" not in st.session_state:
     st.session_state.llm = None
+
+@st.cache_resource
+def get_chat_google_model(api_key):
+    os.environ["GOOGLE_API_KEY"] = api_key
+    return ChatGoogleGenerativeAI(
+        model="gemini-1.5-flash",
+        temperature=0,
+        max_tokens=None,
+        timeout=None,
+        max_retries=2,
+    )
+
+@st.cache_resource
+def get_embedding_model():
+    model_name = "bkai-foundation-models/vietnamese-bi-encoder"
+    model_kwargs = {'device': 'cpu'}
+    encode_kwargs = {'normalize_embeddings': False}
     
-if "model" not in st.session_state:
-    st.session_state.model = None
+    model = HuggingFaceEmbeddings(
+        model_name=model_name,
+        model_kwargs=model_kwargs,
+        encode_kwargs=encode_kwargs
+    )   
+    return model
 
 if "embd" not in st.session_state:
-    st.session_state.embd = None
+    st.session_state.embd = get_embedding_model()
 
 if "save_dir" not in st.session_state:
     st.session_state.save_dir = None 
@@ -246,25 +267,9 @@ if st.session_state.gemini_api is None:
 else:
     os.environ["GOOGLE_API_KEY"] = st.session_state.gemini_api 
     
-    st.session_state.model = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        temperature=0,
-        max_tokens=None,
-        timeout=None,
-        max_retries=2,
-    )
+    st.session_state.model = get_chat_google_model(st.session_state.gemini_api)
     
     st.write(f"Key is set to: {st.session_state.gemini_api}")
-    model_name="bkai-foundation-models/vietnamese-bi-encoder"
-    model_kwargs = {'device': 'cpu'}
-    encode_kwargs = {'normalize_embeddings': False}
-    
-    st.session_state.embd = HuggingFaceEmbeddings(
-        model_name=model_name,
-        model_kwargs=model_kwargs,
-        encode_kwargs=encode_kwargs
-    )   
-     
     st.write(f"loaded vietnamese-bi-encoder")       
 
 if st.session_state.save_dir is None:
@@ -277,6 +282,8 @@ def load_txt(file_path):
     loader_sv = TextLoader(file_path=file_path, encoding="utf-8")
     doc = loader_sv.load()
     return doc
+
+
 
 with st.sidebar:
     uploaded_files = st.file_uploader("Chọn file CSV", accept_multiple_files=True, type=["txt"])   
@@ -306,45 +313,43 @@ with st.sidebar:
         else:
             st.session_state.uploaded_files = set()
             st.session_state.rag = None
-                
+
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+          
+@st.cache_resource
+def compute_rag_chain(model, embd, docs_texts):
+    results = recursive_embed_cluster_summarize(model, embd, docs_texts, level=1, n_levels=3)
+    all_texts = docs_texts.copy()
+    for level in sorted(results.keys()):
+        summaries = results[level][1]["summaries"].tolist()
+        all_texts.extend(summaries)
+    vectorstore = Chroma.from_texts(texts=all_texts, embedding=embd)
+    retriever = vectorstore.as_retriever()
+    template = """
+        Bạn là một trợ lí AI hỗ trợ tuyển sinh và sinh viên. \n
+        Hãy trả lời câu hỏi chính xác, tập trung vào thông tin liên quan đến câu hỏi. \n
+        Nếu bạn không biết câu trả lời, hãy nói không biết, đừng cố tạo ra câu trả lời.\n
+        Dưới đây là thông tin liên quan mà bạn cần sử dụng tới:\n
+        {context}\n
+        hãy trả lời:\n
+        {question}
+        """
+    prompt = PromptTemplate(template=template, input_variables=["context", "question"])
+    rag_chain = (
+        {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        | prompt
+        | model
+        | StrOutputParser()
+    )
+    return rag_chain
+
 if st.session_state.uploaded_files:
     if st.session_state.gemini_api is not None:
         with st.spinner("Đang xử lý, vui lòng đợi..."):
             if st.session_state.rag is None:
-                docs_texts  = [d.page_content for d in documents]
-
-                results = recursive_embed_cluster_summarize(st.session_state.model, st.session_state.embd, docs_texts, level=1, n_levels=3)
-
-                all_texts = docs_texts.copy()
-
-                for level in sorted(results.keys()):
-                    summaries = results[level][1]["summaries"].tolist()
-                    all_texts.extend(summaries)
-
-                vectorstore = Chroma.from_texts(texts=all_texts, embedding=st.session_state.embd)
-                
-                retriever = vectorstore.as_retriever()
-
-                def format_docs(docs):
-                    return "\n\n".join(doc.page_content for doc in docs)
-
-                template = """
-                            Bạn là một trợ lí AI hỗ trợ tuyển sinh và sinh viên. \n
-                            Hãy trả lời câu hỏi chính xác, tập trung vào thông tin liên quan đến câu hỏi. \n
-                            Nếu bạn không biết câu trả lời, hãy nói không biết, đừng cố tạo ra câu trả lời.\n
-                            Dưới đây là thông tin liên quan mà bạn cần sử dụng tới:\n
-                            {context}\n
-                            hãy trả lời:\n
-                            {question}
-                            """
-                prompt = PromptTemplate(template = template, input_variables=["context", "question"])
-                rag_chain = (
-                    {"context": retriever | format_docs, "question": RunnablePassthrough()}
-                    | prompt
-                    | st.session_state.model
-                    | StrOutputParser()
-                ) 
-                st.session_state.rag = rag_chain
+                docs_texts = [d.page_content for d in documents]
+                st.session_state.rag = compute_rag_chain(st.session_state.model, st.session_state.embd, docs_texts)
                 
 if st.session_state.gemini_api is not None:
     if st.session_state.llm is None:
