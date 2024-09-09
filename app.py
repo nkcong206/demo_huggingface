@@ -327,10 +327,15 @@ if st.session_state.uploaded_files:
             def format_docs(docs):
                 return "\n\n".join(doc.page_content for doc in docs)
 
-            template = """<|im_start|>system\nBản là một trợ lí AI hỗ trợ tuyển sinh và sinh viên. Hãy trả lời câu hỏi chính xác, tập trung vào thông tin liên quan đến câu hỏi. Nếu bạn không biết câu trả lời, hãy nói không biết, đừng cố tạo ra câu trả lời.
-                    \n
-
-                        Dưới đây là thông tin liên quan mà bạn có thể sử dụng:\n{context}<|im_end|>\n<|im_start|>hãy trả lời: \n{question}<|im_end|>\n<|im_start|>assistant"""
+            template = """
+                        Bạn là một trợ lí AI hỗ trợ tuyển sinh và sinh viên. \n
+                        Hãy trả lời câu hỏi chính xác, tập trung vào thông tin liên quan đến câu hỏi. \n
+                        Nếu bạn không biết câu trả lời, hãy nói không biết, đừng cố tạo ra câu trả lời.\n
+                        Dưới đây là thông tin liên quan mà bạn cần sử dụng tới:\n
+                        {context}\n
+                        hãy trả lời:\n
+                        {question}
+                        """
             prompt = PromptTemplate(template = template, input_variables=["context", "question"])
             rag_chain = (
                 {"context": retriever | format_docs, "question": RunnablePassthrough()}
