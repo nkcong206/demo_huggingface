@@ -94,7 +94,7 @@ def update_chromadb(collection_name):
     return db
 
 if "vector_store" not in st.session_state:
-    st.session_state.vector_store = load_chromadb(f"data{st.session_state.num}")
+    st.session_state.vector_store = load_chromadb("data")
 
 if "model" not in st.session_state:
     st.session_state.model = None
