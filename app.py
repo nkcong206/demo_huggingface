@@ -25,6 +25,8 @@ if "rag" not in st.session_state:
 if "llm" not in st.session_state:
     st.session_state.llm = None
 
+if "num" not in st.session_state:
+    st.session_state.num = 1
 
 
 @st.cache_resource
@@ -73,7 +75,7 @@ def load_chromadb(collection_name):
     return db
 
 if "vector_store" not in st.session_state:
-    st.session_state.vector_store = load_chromadb("data")
+    st.session_state.vector_store = load_chromadb(f"data{st.session_state.num}")
 
 if "model" not in st.session_state:
     st.session_state.model = None
@@ -166,13 +168,11 @@ def update_rag_chain(_model, _embd, _vectorstore, docs_texts):
     for level in sorted(results.keys()):
         summaries = results[level][1]["summaries"].tolist()
         all_texts.extend(summaries)
-    _vectorstore.reset_collection()
     _vectorstore.add_texts(texts=all_texts)
     rag = rag_chain(_model, _vectorstore)
     return rag
 
 def reset_rag_chain(_model, _vectorstore):
-    _vectorstore.reset_collection()
     rag = rag_chain(_model, _vectorstore)
     return rag
 
@@ -212,6 +212,8 @@ def reset_vectorstore(_model, _vectorstore):
 
 if st.session_state.new_docs:
     st.session_state.new_docs = False
+    st.session_state.num += 1
+    st.session_state.vector_store = load_chromadb(f"data{st.session_state.num}")
     if st.session_state.uploaded_files:
         update_vectorstore(st.session_state.model, st.session_state.embd, st.session_state.vector_store, documents)
     else:
