@@ -4,4 +4,5 @@ langchain-community
 langchain-huggingface
 umap-learn
 scikit-learn
-langchain-chroma
+langchain-qdrant
+qdrant-client
