@@ -25,10 +25,6 @@ if "rag" not in st.session_state:
 if "llm" not in st.session_state:
     st.session_state.llm = None
 
-if "num" not in st.session_state:
-    st.session_state.num = 1
-
-
 @st.cache_resource
 def get_chat_google_model(api_key):
     os.environ["GOOGLE_API_KEY"] = api_key
@@ -62,6 +58,29 @@ def load_chromadb(collection_name):
     url="https://da9fadd2-dc5a-4481-ac79-4e2677a2354b.europe-west3-0.gcp.cloud.qdrant.io", 
     api_key="X_-IVToBM07Mot4Mmzg5xNjYzc1DlIgl0VQDUNmGhI_Z-WA5FJ2ETA" 
 )
+
+    client.recreate_collection(
+        collection_name=collection_name, 
+        vectors_config=VectorParams(size=768, distance=Distance.COSINE) 
+    )
+    db = QdrantVectorStore(
+        client=client,
+        collection_name=collection_name,
+        embedding=st.session_state.embd,
+    )
+    return db
+
+@st.cache_resource
+def update_chromadb(collection_name):
+    client = QdrantClient(
+    url="https://da9fadd2-dc5a-4481-ac79-4e2677a2354b.europe-west3-0.gcp.cloud.qdrant.io", 
+    api_key="X_-IVToBM07Mot4Mmzg5xNjYzc1DlIgl0VQDUNmGhI_Z-WA5FJ2ETA" 
+    )
+    
+    try:
+        client.delete_collection(collection_name=collection_name)
+    except Exception as e:
+        print(f"Warning: {e}")
 
     client.recreate_collection(
         collection_name=collection_name, 
@@ -130,17 +149,6 @@ def rag_chain(_model, _vectorstore):
 
 if st.session_state.model is not None and st.session_state.vector_store is not None:
     st.session_state.rag = rag_chain(st.session_state.model, st.session_state.vector_store)
-
-# if st.session_state.save_dir is None:
-#     save_dir = "./Documents"
-#     if not os.path.exists(save_dir):
-#         os.makedirs(save_dir)
-#     st.session_state.save_dir = save_dir
-    
-# def load_txt(file_path):
-#     loader_sv = TextLoader(file_path=file_path, encoding="utf-8")
-#     doc = loader_sv.load()
-#     return doc
 
 if "new_docs" not in st.session_state:
     st.session_state.new_docs = False
@@ -212,8 +220,7 @@ def reset_vectorstore(_model, _vectorstore):
 
 if st.session_state.new_docs:
     st.session_state.new_docs = False
-    st.session_state.num += 1
-    st.session_state.vector_store = load_chromadb(f"data{st.session_state.num}")
+    st.session_state.vector_store = update_chromadb("data")
     if st.session_state.uploaded_files:
         update_vectorstore(st.session_state.model, st.session_state.embd, st.session_state.vector_store, documents)
     else:
